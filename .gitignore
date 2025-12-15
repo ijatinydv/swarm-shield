@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.db
+.env
+node_modules/
+apps/dashboard/dist/
+.DS_Store
+*.log

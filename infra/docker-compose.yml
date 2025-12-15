@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  gateway-api:
+    build:
+      context: ..
+      dockerfile: services/gateway-api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MODE=SIMULATOR
+      - DATABASE_URL=sqlite:///./data.db
+      - GATEWAY_PORT=8000
+      - SCANNER_URL=http://scanner-agent:8001
+      - VERIFIER_URL=http://verifier-agent:8002
+    volumes:
+      - gateway-data:/app/services/gateway-api
+    networks:
+      - swarm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  scanner-agent:
+    build:
+      context: ..
+      dockerfile: services/scanner-agent/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - MODE=SIMULATOR
+      - SCANNER_PORT=8001
+      - GATEWAY_URL=http://gateway-api:8000
+      - VERIFIER_URL=http://verifier-agent:8002
+    depends_on:
+      gateway-api:
+        condition: service_healthy
+    networks:
+      - swarm-network
+
+  verifier-agent:
+    build:
+      context: ..
+      dockerfile: services/verifier-agent/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - MODE=SIMULATOR
+      - VERIFIER_PORT=8002
+      - GATEWAY_URL=http://gateway-api:8000
+    depends_on:
+      gateway-api:
+        condition: service_healthy
+    networks:
+      - swarm-network
+
+  patch-agent:
+    build:
+      context: ..
+      dockerfile: services/patch-agent/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - MODE=SIMULATOR
+      - PATCH_PORT=8003
+      - GATEWAY_URL=http://gateway-api:8000
+      - GITHUB_PR_ENABLED=false
+    depends_on:
+      gateway-api:
+        condition: service_healthy
+    networks:
+      - swarm-network
+
+  ci-agent:
+    build:
+      context: ..
+      dockerfile: services/ci-agent/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - MODE=SIMULATOR
+      - CI_PORT=8004
+      - GATEWAY_URL=http://gateway-api:8000
+    depends_on:
+      gateway-api:
+        condition: service_healthy
+    networks:
+      - swarm-network
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: apps/dashboard/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - gateway-api
+    networks:
+      - swarm-network
+
+networks:
+  swarm-network:
+    driver: bridge
+
+volumes:
+  gateway-data:
