@@ -1,20 +1,23 @@
 import clsx from 'clsx'
+import { Link } from 'react-router-dom'
+import { Shield } from 'lucide-react'
 
 interface CardProps {
   children: React.ReactNode
   className?: string
   glow?: boolean
-  variant?: 'default' | 'danger' | 'success'
+  accent?: 'none' | 'cyan' | 'pink'
 }
 
-export function Card({ children, className, glow, variant = 'default' }: CardProps) {
+export function Card({ children, className, glow, accent = 'none' }: CardProps) {
   return (
     <div
       className={clsx(
-        'glass-panel p-6 transition-all duration-300',
+        'glass-panel p-6 transition-all duration-300 backdrop-blur-md bg-white/5 border border-white/10',
+        'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/5 before:to-transparent before:pointer-events-none',
         glow && 'card-glow',
-        variant === 'danger' && 'glass-panel-danger',
-        variant === 'success' && 'border-neon-green/20',
+        accent === 'cyan' && 'border-neon-cyan/40 shadow-[0_0_25px_rgba(0,242,234,0.08)]',
+        accent === 'pink' && 'border-neon-pink/35 shadow-[0_0_25px_rgba(255,0,85,0.08)]',
         className
       )}
     >
@@ -59,7 +62,7 @@ export function Badge({ variant, children, className, pulse }: BadgeProps) {
 }
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'glow'
   size?: 'sm' | 'md' | 'lg'
   glow?: boolean
 }
@@ -75,7 +78,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        'relative inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-300 uppercase tracking-wide overflow-hidden',
+        'group relative inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-300 uppercase tracking-wide overflow-hidden',
         'disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none',
         // Primary - Neon Cyan Holographic
         variant === 'primary' && [
@@ -87,6 +90,16 @@ export function Button({
           'hover:-translate-y-0.5',
           'active:translate-y-0 active:shadow-none',
           glow && 'shadow-[0_0_15px_rgba(0,242,234,0.3)]',
+        ],
+        // Glow - Dual Neon
+        variant === 'glow' && [
+          'bg-gradient-to-r from-neon-cyan/40 via-white/10 to-neon-pink/40',
+          'border border-white/20',
+          'text-white drop-shadow-[0_0_12px_rgba(0,242,234,0.45)]',
+          'hover:shadow-[0_0_25px_rgba(0,242,234,0.2),0_0_30px_rgba(255,0,85,0.25)]',
+          'hover:-translate-y-0.5 hover:border-white/40',
+          'active:translate-y-0',
+          glow && 'shadow-[0_0_18px_rgba(0,242,234,0.2),0_0_22px_rgba(255,0,85,0.25)]',
         ],
         // Secondary - Glass Style
         variant === 'secondary' && [
@@ -110,9 +123,9 @@ export function Button({
         ],
         // Ghost - Minimal
         variant === 'ghost' && [
-          'bg-transparent border-transparent',
-          'text-gray-400 hover:text-neon-cyan',
-          'hover:bg-neon-cyan/5',
+          'bg-transparent border border-white/5',
+          'text-gray-300 hover:text-white',
+          'hover:border-neon-cyan/40 hover:bg-neon-cyan/5',
         ],
         // Sizes
         size === 'sm' && 'px-3 py-1.5 text-xs gap-1.5',
@@ -126,6 +139,38 @@ export function Button({
       <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover:translate-x-full transition-transform duration-700" />
       <span className="relative flex items-center gap-2">{children}</span>
     </button>
+  )
+}
+
+interface NavbarProps {
+  ctaHref?: string
+}
+
+export function Navbar({ ctaHref = '/app' }: NavbarProps) {
+  return (
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-soc-bg/70 backdrop-blur-xl">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-neon-cyan/20 to-neon-pink/20 border border-white/15 shadow-[0_0_25px_rgba(0,242,234,0.12)] grid place-items-center overflow-hidden">
+            <Shield className="w-6 h-6 text-neon-cyan drop-shadow-[0_0_12px_rgba(0,242,234,0.8)]" />
+            <span className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent animate-scan-line" />
+          </div>
+          <div>
+            <p className="text-sm font-mono uppercase tracking-[0.3em] text-gray-400">Swarm Shield</p>
+            <p className="text-lg font-display font-bold text-white leading-tight">
+              Secure <span className="text-neon-cyan">Supply Chains</span>
+            </p>
+          </div>
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm">Docs</Button>
+          <Link to={ctaHref}>
+            <Button variant="glow" size="md">Launch App</Button>
+          </Link>
+        </div>
+      </div>
+    </header>
   )
 }
 

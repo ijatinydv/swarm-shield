@@ -15,6 +15,7 @@ export default {
         // Primary Neon Accents
         'neon-cyan': '#00f2ea',
         'neon-pink': '#ff0055',
+        'soc-bg': '#030508',
         'neon-green': '#39ff14',
         'neon-orange': '#ff6600',
         'neon-purple': '#bf00ff',
@@ -31,9 +32,10 @@ export default {
         'glass-pink': 'rgba(255, 0, 85, 0.08)',
       },
       animation: {
+        'pulse': 'pulse 2.5s ease-in-out infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'glow': 'glow 2s ease-in-out infinite alternate',
-        'glow-pink': 'glow-pink 2s ease-in-out infinite alternate',
+        'glow': 'glow 2.4s ease-in-out infinite alternate',
+        'glow-pink': 'glow-pink 2.4s ease-in-out infinite alternate',
         'scan-line': 'scan-line 3s linear infinite',
         'flicker': 'flicker 0.15s infinite',
         'float': 'float 6s ease-in-out infinite',
@@ -53,6 +55,10 @@ export default {
             boxShadow: '0 0 10px rgba(0, 242, 234, 0.6), 0 0 20px rgba(0, 242, 234, 0.4), 0 0 30px rgba(0, 242, 234, 0.2), inset 0 0 10px rgba(0, 242, 234, 0.15)',
             borderColor: 'rgba(0, 242, 234, 0.6)'
           },
+        },
+        pulse: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.04)', opacity: '0.7' },
         },
         'glow-pink': {
           '0%': { 

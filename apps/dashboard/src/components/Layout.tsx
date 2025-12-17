@@ -1,15 +1,16 @@
+import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Shield, AlertTriangle, Users, GitBranch, LayoutDashboard, Activity, Radio } from 'lucide-react'
 import clsx from 'clsx'
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/incidents', icon: AlertTriangle, label: 'Incidents' },
-  { path: '/agents', icon: Users, label: 'Agents' },
-  { path: '/ci-gate', icon: GitBranch, label: 'CI Gate' },
+  { path: '/app', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/app/incidents', icon: AlertTriangle, label: 'Incidents' },
+  { path: '/app/agents', icon: Users, label: 'Agents' },
+  { path: '/app/ci-gate', icon: GitBranch, label: 'CI Gate' },
 ]
 
-export default function Layout() {
+export default function Layout({ children }: { children?: ReactNode }) {
   const location = useLocation()
 
   return (
@@ -33,7 +34,7 @@ export default function Layout() {
         
         <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-4 group">
+          <Link to="/app" className="flex items-center gap-4 group">
             {/* Hexagonal Logo Container */}
             <div className="relative">
               {/* Outer glow ring */}
@@ -68,7 +69,7 @@ export default function Layout() {
           <nav className="flex items-center gap-1">
             {navItems.map(({ path, icon: Icon, label }) => {
               const isActive = location.pathname === path || 
-                (path !== '/' && location.pathname.startsWith(path))
+                (path !== '/app' && location.pathname.startsWith(path))
               
               return (
                 <Link
@@ -133,7 +134,7 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
-        <Outlet />
+        {children ?? <Outlet />}
       </main>
 
       {/* Footer accent line */}
