@@ -3,8 +3,9 @@ import ForceGraph2D, { ForceGraphMethods } from 'react-force-graph-2d'
 
 interface StarNode {
   id: string
-  cluster: number
-  intensity: number
+  cluster?: number
+  intensity?: number
+  color?: string
 }
 
 interface StarLink {
@@ -38,24 +39,29 @@ const defaultData = (): { nodes: StarNode[]; links: StarLink[] } => {
 
 export default function SwarmGraph({ width = 640, height = 400, data }: SwarmGraphProps) {
   const graphRef = useRef<ForceGraphMethods<StarNode, StarLink>>()
-  const graphData = useMemo(() => data ?? defaultData(), [data])
+  const graphData = useMemo(() => {
+    if (data && Array.isArray(data.nodes) && data.nodes.length > 0) return data
+    return defaultData()
+  }, [data])
 
   const paintNode = useCallback((node: StarNode & { x?: number; y?: number }, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const radius = (3 + node.intensity * 3) / globalScale
+    const cluster = typeof node.cluster === 'number' ? node.cluster : 0
+    const intensity = typeof node.intensity === 'number' ? node.intensity : 0.9
+    const radius = (3 + intensity * 3) / globalScale
     const x = node.x || 0
     const y = node.y || 0
 
-    const hues = ['#00f2ea', '#ff66b3', '#8af8ff']
-    const color = hues[node.cluster % hues.length]
+    const hues = ['#2de2e6', '#39ff14', '#7c5dff', '#f7c948', '#ff4d6d']
+    const baseColor = node.color || hues[cluster % hues.length]
 
     ctx.save()
     ctx.shadowBlur = 18
-    ctx.shadowColor = `${color}cc`
+    ctx.shadowColor = `${baseColor}cc`
 
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 4)
-    gradient.addColorStop(0, `${color}ff`)
-    gradient.addColorStop(0.35, `${color}99`)
-    gradient.addColorStop(1, `${color}00`)
+    gradient.addColorStop(0, `${baseColor}ff`)
+    gradient.addColorStop(0.35, `${baseColor}99`)
+    gradient.addColorStop(1, `${baseColor}00`)
     ctx.fillStyle = gradient
     ctx.beginPath()
     ctx.arc(x, y, radius * 3, 0, Math.PI * 2)
@@ -74,9 +80,12 @@ export default function SwarmGraph({ width = 640, height = 400, data }: SwarmGra
     const end = link.target
     if (!start || !end || typeof start.x !== 'number' || typeof end.x !== 'number') return
 
+    const startColor = start.color || '#2de2e6'
+    const endColor = end.color || '#ff4d6d'
+
     const gradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y)
-    gradient.addColorStop(0, 'rgba(0, 242, 234, 0.35)')
-    gradient.addColorStop(1, 'rgba(255, 0, 85, 0.35)')
+    gradient.addColorStop(0, `${startColor}59`)
+    gradient.addColorStop(1, `${endColor}59`)
 
     ctx.save()
     ctx.strokeStyle = gradient
@@ -91,9 +100,9 @@ export default function SwarmGraph({ width = 640, height = 400, data }: SwarmGra
     const px = start.x + (end.x - start.x) * pulse
     const py = start.y + (end.y - start.y) * pulse
     ctx.setLineDash([])
-    ctx.fillStyle = '#00f2ea'
+    ctx.fillStyle = startColor
     ctx.shadowBlur = 12
-    ctx.shadowColor = 'rgba(0, 242, 234, 0.8)'
+    ctx.shadowColor = `${startColor}cc`
     ctx.beginPath()
     ctx.arc(px, py, 2.5 / globalScale, 0, Math.PI * 2)
     ctx.fill()
