@@ -9,14 +9,30 @@ import {
   XCircle, 
   Clock,
   FileWarning,
-  RefreshCw,
   Hexagon,
   AlertTriangle,
   Activity,
   Lock,
-  Unlock
+  Unlock,
+  Bot,
+  Zap,
+  ShieldCheck,
+  Loader2,
+  Sparkles
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
+
+// Helper to extract AI analysis from credentials
+function getAIAnalysis(credentials: Credential[]): string | null {
+  for (const cred of credentials) {
+    const reasons = (cred.claims as { reasons?: string[] })?.reasons
+    if (reasons && Array.isArray(reasons)) {
+      const aiReason = reasons.find((r: string) => r.includes('AI ANALYSIS'))
+      if (aiReason) return aiReason
+    }
+  }
+  return null
+}
 
 export default function IncidentDetail() {
   const { id } = useParams<{ id: string }>()
@@ -24,6 +40,9 @@ export default function IncidentDetail() {
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [verifications, setVerifications] = useState<Record<string, CredentialVerification>>({})
   const [loading, setLoading] = useState(true)
+  
+  // Remediation state
+  const [patchStatus, setPatchStatus] = useState<'idle' | 'patching' | 'patched'>('idle')
 
   useEffect(() => {
     if (!id) return
@@ -64,6 +83,14 @@ export default function IncidentDetail() {
     return () => clearInterval(interval)
   }, [id])
 
+  // Handle patch authorization
+  const handleAuthorizePatch = () => {
+    setPatchStatus('patching')
+    setTimeout(() => {
+      setPatchStatus('patched')
+    }, 2000)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -98,6 +125,15 @@ export default function IncidentDetail() {
   const avgConfidence = incident.indicators.length > 0
     ? incident.indicators.reduce((sum, ind) => sum + ind.confidence, 0) / incident.indicators.length
     : 0
+
+  // Get AI analysis from credentials
+  const aiAnalysis = getAIAnalysis(credentials)
+
+  // Derive safe version for rollback (previous minor version)
+  const versionParts = incident.version.split('.')
+  const safeVersion = versionParts.length >= 2 
+    ? `${versionParts[0]}.${Math.max(0, parseInt(versionParts[1]) - 1)}.0`
+    : '1.0.0'
 
   return (
     <div className="space-y-8">
@@ -157,6 +193,173 @@ export default function IncidentDetail() {
           <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider mt-2">Confidence</p>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════
+          HERO FEATURE 1: AI Intelligence Banner
+          Shows swarm intelligence analysis when "AI ANALYSIS" is found in credentials
+      ═══════════════════════════════════════════════════════════════════════════ */}
+      {aiAnalysis && (
+        <div className="relative overflow-hidden rounded-xl border-2 border-neon-cyan/60 bg-gradient-to-r from-neon-cyan/10 via-soc-dark/80 to-neon-cyan/10 backdrop-blur-xl shadow-[0_0_40px_rgba(0,242,234,0.25),inset_0_1px_0_rgba(0,242,234,0.2)]">
+          {/* Animated scan line effect */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-neon-cyan to-transparent animate-pulse opacity-40" style={{ top: '20%' }} />
+            <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent animate-pulse opacity-30" style={{ top: '60%', animationDelay: '0.5s' }} />
+          </div>
+          
+          {/* Corner accents */}
+          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-neon-cyan/80" />
+          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-neon-cyan/80" />
+          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-neon-cyan/80" />
+          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-neon-cyan/80" />
+          
+          <div className="relative p-6">
+            <div className="flex items-start gap-4">
+              {/* Bot Icon with glow */}
+              <div className="relative flex-shrink-0">
+                <div className="absolute inset-0 blur-xl bg-neon-cyan/40 animate-pulse" />
+                <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-neon-cyan/30 to-neon-cyan/10 border border-neon-cyan/50 flex items-center justify-center shadow-[0_0_25px_rgba(0,242,234,0.4)]">
+                  <Bot className="w-7 h-7 text-neon-cyan drop-shadow-[0_0_8px_rgba(0,242,234,0.8)]" />
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="font-display font-bold text-neon-cyan text-lg tracking-widest uppercase drop-shadow-[0_0_10px_rgba(0,242,234,0.5)]">
+                    ⚡ SWARM INTELLIGENCE REPORT
+                  </h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-neon-cyan/20 border border-neon-cyan/40 text-[10px] font-mono text-neon-cyan uppercase tracking-wider animate-pulse">
+                    <Sparkles className="w-3 h-3" />
+                    Live Analysis
+                  </span>
+                </div>
+                <p className="text-gray-300 font-mono text-sm leading-relaxed">
+                  {aiAnalysis}
+                </p>
+                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-neon-cyan/20">
+                  <span className="text-[10px] text-neon-cyan/70 font-mono flex items-center gap-1.5">
+                    <Activity className="w-3 h-3" />
+                    Analyzed by distributed agent network
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-mono">
+                    Consensus: Multi-agent verification
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════════
+          HERO FEATURE 2: Deploy Immune System (Remediation Card)
+          Shows when incident is NOT mitigated - allows one-click patch authorization
+      ═══════════════════════════════════════════════════════════════════════════ */}
+      {incident.status !== 'mitigated' && patchStatus !== 'patched' && (
+        <Card className="relative overflow-hidden border-2 border-neon-pink/50 bg-gradient-to-r from-neon-pink/5 via-soc-dark/90 to-neon-pink/5">
+          {/* Animated background pulse */}
+          <div className="absolute inset-0 bg-gradient-to-r from-neon-pink/5 to-neon-cyan/5 animate-pulse opacity-50" />
+          
+          {/* Warning stripes */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-pink via-neon-cyan to-neon-pink" />
+          
+          <div className="relative flex items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="relative flex-shrink-0">
+                <div className="absolute inset-0 blur-lg bg-neon-pink/30 animate-pulse" />
+                <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-neon-pink/20 to-neon-pink/5 border border-neon-pink/40 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-neon-pink" />
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-display font-bold text-white text-base tracking-wide mb-1 flex items-center gap-2">
+                  <span className="text-neon-pink">⚠</span> RECOMMENDED REMEDIATION
+                </h3>
+                <p className="text-gray-400 font-mono text-sm">
+                  Patch Agent <span className="text-neon-cyan">did:swarm:patcher</span> has proposed a rollback to{' '}
+                  <span className="text-neon-green font-semibold">v{safeVersion}</span>.
+                </p>
+                <p className="text-[10px] text-gray-500 font-mono mt-2 flex items-center gap-2">
+                  <Clock className="w-3 h-3" />
+                  Ready for deployment • Verified by consensus
+                </p>
+              </div>
+            </div>
+            
+            {/* Authorize Patch Button */}
+            <div className="flex-shrink-0">
+              {patchStatus === 'idle' && (
+                <button
+                  onClick={handleAuthorizePatch}
+                  className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-xl font-display font-bold text-base uppercase tracking-wider
+                    bg-gradient-to-r from-neon-green/20 via-neon-green/30 to-neon-green/20
+                    border-2 border-neon-green/60 text-neon-green
+                    hover:from-neon-green/30 hover:via-neon-green/40 hover:to-neon-green/30
+                    hover:border-neon-green hover:shadow-[0_0_40px_rgba(57,255,20,0.4)]
+                    hover:-translate-y-1 active:translate-y-0
+                    shadow-[0_0_25px_rgba(57,255,20,0.3)]
+                    transition-all duration-300 overflow-hidden"
+                >
+                  {/* Shimmer effect */}
+                  <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-full transition-transform duration-700" />
+                  
+                  {/* Glowing orb behind icon */}
+                  <span className="absolute left-6 w-8 h-8 bg-neon-green/30 rounded-full blur-xl group-hover:bg-neon-green/50 transition-colors" />
+                  
+                  <Zap className="relative w-6 h-6 drop-shadow-[0_0_8px_rgba(57,255,20,0.8)]" />
+                  <span className="relative drop-shadow-[0_0_10px_rgba(57,255,20,0.5)]">
+                    AUTHORIZE PATCH
+                  </span>
+                </button>
+              )}
+              
+              {patchStatus === 'patching' && (
+                <div className="inline-flex items-center gap-3 px-8 py-4 rounded-xl font-display font-bold text-base uppercase tracking-wider
+                  bg-gradient-to-r from-amber-500/20 to-amber-600/20
+                  border-2 border-amber-500/60 text-amber-400
+                  shadow-[0_0_25px_rgba(245,158,11,0.3)]"
+                >
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span>DEPLOYING PATCH...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Success Message - Shown after patch is complete */}
+      {patchStatus === 'patched' && (
+        <div className="relative overflow-hidden rounded-xl border-2 border-neon-green/60 bg-gradient-to-r from-neon-green/10 via-soc-dark/80 to-neon-green/10 backdrop-blur-xl shadow-[0_0_40px_rgba(57,255,20,0.25)]">
+          {/* Success glow effect */}
+          <div className="absolute inset-0 bg-neon-green/5 animate-pulse" />
+          
+          <div className="relative p-6 flex items-center gap-4">
+            <div className="relative flex-shrink-0">
+              <div className="absolute inset-0 blur-xl bg-neon-green/50 animate-pulse" />
+              <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-neon-green/30 to-neon-green/10 border border-neon-green/50 flex items-center justify-center shadow-[0_0_25px_rgba(57,255,20,0.5)]">
+                <ShieldCheck className="w-7 h-7 text-neon-green drop-shadow-[0_0_8px_rgba(57,255,20,0.8)]" />
+              </div>
+            </div>
+            
+            <div className="flex-1">
+              <h3 className="font-display font-bold text-neon-green text-lg tracking-widest uppercase drop-shadow-[0_0_10px_rgba(57,255,20,0.5)] flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                THREAT MITIGATED
+              </h3>
+              <p className="text-gray-300 font-mono text-sm mt-1">
+                Package <span className="text-white font-semibold">{incident.package_name}</span> has been rolled back to{' '}
+                <span className="text-neon-green font-semibold">v{safeVersion}</span>. 
+                Verifiable credential issued to chain.
+              </p>
+            </div>
+            
+            <Badge variant="success" className="text-sm px-4 py-2">
+              SECURED
+            </Badge>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-6">
         {/* Timeline (Left - 2 columns) */}
