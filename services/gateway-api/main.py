@@ -3,7 +3,7 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -28,6 +28,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+SCANNER_URL = os.getenv("SCANNER_URL", "http://localhost:8001")
+VERIFIER_URL = os.getenv("VERIFIER_URL", "http://localhost:8002")
+PATCH_URL = os.getenv("PATCH_URL", "http://localhost:8003")
+CI_URL = os.getenv("CI_URL", "http://localhost:8004")
 
 db_path = os.getenv("DATABASE_URL", "sqlite:///./data.db").replace("sqlite:///", "")
 storage = Storage(db_path)
@@ -199,10 +204,6 @@ def get_patch_plan(plan_id: str):
     return plan
 
 
-SCANNER_URL = os.getenv("SCANNER_URL", "http://localhost:8001")
-VERIFIER_URL = os.getenv("VERIFIER_URL", "http://localhost:8002")
-
-
 async def call_scanner(event_data: dict):
     """Call scanner agent HTTP endpoint directly."""
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -223,6 +224,20 @@ async def call_verifier(verification_data: dict):
         except Exception as e:
             print(f"Failed to call verifier: {e}")
             return None
+
+
+@app.post("/ci/check-update")
+async def proxy_ci_check_update(request: Dict[str, Any]):
+    """Proxy CI update checks to the internal CI agent."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(f"{CI_URL}/ci/check-update", json=request)
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=503, detail=f"CI service unavailable: {exc}")
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
 
 
 @app.post("/demo/trigger", response_model=TriggerDemoResponse)
