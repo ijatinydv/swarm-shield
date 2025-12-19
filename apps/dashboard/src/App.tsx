@@ -14,10 +14,10 @@ export default function App() {
         <Route path="/" element={<Landing />} />
 
         <Route path="/app" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/app/incidents" element={<Layout><Incidents /></Layout>} />
-        <Route path="/app/incidents/:id" element={<Layout><IncidentDetail /></Layout>} />
-        <Route path="/app/agents" element={<Layout><Agents /></Layout>} />
-        <Route path="/app/ci-gate" element={<Layout><CIGate /></Layout>} />
+        <Route path="/incidents" element={<Layout><Incidents /></Layout>} />
+        <Route path="/incidents/:id" element={<Layout><IncidentDetail /></Layout>} />
+        <Route path="/agents" element={<Layout><Agents /></Layout>} />
+        <Route path="/ci-gate" element={<Layout><CIGate /></Layout>} />
       </Routes>
     </BrowserRouter>
   )
