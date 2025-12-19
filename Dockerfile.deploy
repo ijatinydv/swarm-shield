@@ -1,0 +1,87 @@
+# =============================================================================
+# Swarm Shield - Monolith Deployment Dockerfile
+# =============================================================================
+# This Dockerfile bundles all 5 backend services into a single container
+# for deployment on platforms with single-container limitations (e.g., Render Free Tier).
+#
+# Build: docker build -f Dockerfile.deploy -t swarm-shield-monolith .
+# Run:   docker run -p 8000:8000 swarm-shield-monolith
+# =============================================================================
+
+FROM python:3.11-slim
+
+# -----------------------------------------------------------------------------
+# System Dependencies
+# -----------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# -----------------------------------------------------------------------------
+# Set Working Directory
+# -----------------------------------------------------------------------------
+WORKDIR /app
+
+# -----------------------------------------------------------------------------
+# Install Python Dependencies
+# -----------------------------------------------------------------------------
+# Install shared package dependencies FIRST (other services depend on it)
+COPY packages/shared/requirements.txt /tmp/shared-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/shared-requirements.txt
+
+# Install gateway-api dependencies
+COPY services/gateway-api/requirements.txt /tmp/gateway-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/gateway-requirements.txt
+
+# Install scanner-agent dependencies
+COPY services/scanner-agent/requirements.txt /tmp/scanner-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/scanner-requirements.txt
+
+# Install verifier-agent dependencies
+COPY services/verifier-agent/requirements.txt /tmp/verifier-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/verifier-requirements.txt
+
+# Install patch-agent dependencies
+COPY services/patch-agent/requirements.txt /tmp/patch-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/patch-requirements.txt
+
+# Install ci-agent dependencies
+COPY services/ci-agent/requirements.txt /tmp/ci-requirements.txt
+RUN pip install --no-cache-dir -r /tmp/ci-requirements.txt
+
+# -----------------------------------------------------------------------------
+# Copy Application Code
+# -----------------------------------------------------------------------------
+COPY . /app
+
+# -----------------------------------------------------------------------------
+# Environment Configuration
+# -----------------------------------------------------------------------------
+# Set PYTHONPATH so imports work correctly across all services
+ENV PYTHONPATH=/app
+
+# Internal service URLs (all in same container now)
+ENV GATEWAY_URL=http://127.0.0.1:8000
+ENV VERIFIER_URL=http://127.0.0.1:8002
+
+# -----------------------------------------------------------------------------
+# Make startup script executable
+# -----------------------------------------------------------------------------
+RUN chmod +x /app/scripts/start_monolith.sh
+
+# -----------------------------------------------------------------------------
+# Expose Public Port
+# -----------------------------------------------------------------------------
+# Only expose the gateway port - it's the public entrypoint
+EXPOSE 8000
+
+# -----------------------------------------------------------------------------
+# Health Check
+# -----------------------------------------------------------------------------
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# -----------------------------------------------------------------------------
+# Start All Services
+# -----------------------------------------------------------------------------
+CMD ["./scripts/start_monolith.sh"]
