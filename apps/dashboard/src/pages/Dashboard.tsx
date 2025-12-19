@@ -8,7 +8,6 @@ import {
   Users, 
   Clock, 
   ChevronRight,
-  PlayCircle,
   RefreshCw,
   Zap,
   Activity,

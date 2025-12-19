@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, Agent } from '../lib/api'
 import { Card, Badge, Button, ProgressRing } from '../components/ui'
-import { Users, RefreshCw, Wifi, WifiOff, Hexagon, Activity, Shield, Cpu } from 'lucide-react'
+import { Users, RefreshCw, Wifi, WifiOff, Hexagon, Activity, Cpu } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 const capabilityColors: Record<string, string> = {

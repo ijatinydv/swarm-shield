@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Incident } from '../lib/api'
 import { Card, Badge, Button } from '../components/ui'
-import { AlertTriangle, ChevronRight, RefreshCw, Search, Hexagon, Activity, Filter, ExternalLink } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Hexagon, Activity, Filter, ExternalLink } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 
 export default function Incidents() {

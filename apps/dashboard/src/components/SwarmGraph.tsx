@@ -115,11 +115,6 @@ export default function SwarmGraph({ width = 640, height = 400, data }: SwarmGra
     }
   }, [graphData])
 
-  useEffect(() => {
-    const interval = setInterval(() => graphRef.current?.refresh?.(), 60)
-    return () => clearInterval(interval)
-  }, [])
-
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-white/0">
       <div className="absolute inset-0 bg-cyber-grid bg-grid-size opacity-20 pointer-events-none" />
