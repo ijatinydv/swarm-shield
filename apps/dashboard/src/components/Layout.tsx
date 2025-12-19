@@ -5,9 +5,9 @@ import clsx from 'clsx'
 
 const navItems = [
   { path: '/app', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/app/incidents', icon: AlertTriangle, label: 'Incidents' },
-  { path: '/app/agents', icon: Users, label: 'Agents' },
-  { path: '/app/ci-gate', icon: GitBranch, label: 'CI Gate' },
+  { path: '/incidents', icon: AlertTriangle, label: 'Incidents' },
+  { path: '/agents', icon: Users, label: 'Agents' },
+  { path: '/ci-gate', icon: GitBranch, label: 'CI Gate' },
 ]
 
 export default function Layout({ children }: { children?: ReactNode }) {
