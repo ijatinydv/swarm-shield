@@ -30,7 +30,8 @@ app = FastAPI(title="Scanner Agent", version="1.0.0")
 # ============================================================================
 # NPM LIVE WATCHTOWER CONFIGURATION
 # ============================================================================
-NPM_CHANGES_URL = "https://replicate.npmjs.com/_changes"
+NPM_CHANGES_URL = "https://replicate.npmjs.com/registry/_changes"
+NPM_REGISTRY_URL = "https://registry.npmjs.org"
 NPM_WATCHER_ENABLED = os.getenv("NPM_WATCHER_ENABLED", "true").lower() == "true"
 NPM_POLL_TIMEOUT = int(os.getenv("NPM_POLL_TIMEOUT", "60"))  # Long-poll timeout in seconds
 NPM_BACKOFF_SECONDS = 5  # Backoff on connection errors
@@ -259,6 +260,10 @@ def should_scan_package(package_name: str) -> bool:
     Determine if a package should be fully scanned based on target filters.
     Returns True if package matches keywords or is in the custom watch list.
     """
+    # Skip internal/design documents
+    if not package_name or package_name.startswith("_"):
+        return False
+    
     # Check custom watch list first (exact match)
     if package_name in CUSTOM_WATCH_LIST:
         return True
@@ -270,6 +275,31 @@ def should_scan_package(package_name: str) -> bool:
             return True
     
     return False
+
+
+async def fetch_package_details(package_name: str, client: httpx.AsyncClient) -> Optional[dict]:
+    """
+    Fetch full package details from NPM registry (Step 2 of 2-step polling).
+    Returns parsed package info or None if not found/error.
+    """
+    try:
+        url = f"{NPM_REGISTRY_URL}/{package_name}"
+        response = await client.get(url, timeout=30.0)
+        
+        if response.status_code == 404:
+            logger.debug(f"[NPM Watcher] Package not found: {package_name}")
+            return None
+        
+        response.raise_for_status()
+        doc = response.json()
+        return extract_package_info(doc)
+        
+    except httpx.HTTPStatusError as e:
+        logger.warning(f"[NPM Watcher] HTTP {e.response.status_code} fetching {package_name}")
+        return None
+    except Exception as e:
+        logger.warning(f"[NPM Watcher] Error fetching {package_name}: {e}")
+        return None
 
 
 def extract_package_info(doc: dict) -> Optional[dict]:
@@ -383,25 +413,29 @@ async def process_npm_package(package_info: dict):
 async def npm_watcher_task():
     """
     Background task that monitors the NPM registry in real-time using CouchDB changes feed.
-    Uses long-polling strategy with robust error handling and automatic reconnection.
+    Uses 2-step polling strategy:
+      Step 1: Poll _changes feed (without include_docs - deprecated by NPM)
+      Step 2: Fetch full package details only for matched packages
     """
     last_seq = "now"  # Start from current point in time
     
     logger.info("[NPM Watcher] 🔭 Watchtower online - Monitoring NPM registry for new publications...")
+    logger.info(f"[NPM Watcher] Using 2-step polling strategy (changes: {NPM_CHANGES_URL})")
     
     async with httpx.AsyncClient(timeout=httpx.Timeout(NPM_POLL_TIMEOUT + 10, connect=30.0)) as client:
         while True:
             try:
-                # Build the long-poll request URL
+                # ============================================================
+                # STEP 1: Poll the _changes feed (lightweight, no docs)
+                # ============================================================
                 params = {
                     "feed": "longpoll",
-                    "include_docs": "true",
                     "since": last_seq,
+                    # NOTE: Do NOT include "include_docs" - deprecated by NPM!
                 }
                 
                 logger.debug(f"[NPM Watcher] Polling changes since: {last_seq}")
                 
-                # Make the long-poll request
                 response = await client.get(
                     NPM_CHANGES_URL,
                     params=params,
@@ -416,31 +450,38 @@ async def npm_watcher_task():
                 if new_last_seq:
                     last_seq = new_last_seq
                 
-                # Process each change in the results
+                # ============================================================
+                # STEP 2: Filter & Fetch - only fetch details for matches
+                # ============================================================
                 results = data.get("results", [])
                 
                 for change in results:
-                    doc = change.get("doc")
-                    if not doc:
+                    # Get package name from the change ID
+                    package_name = change.get("id")
+                    
+                    # Skip deleted packages
+                    if change.get("deleted"):
                         continue
                     
-                    # Extract package information
-                    package_info = extract_package_info(doc)
+                    # OPTIMIZATION: Filter BEFORE fetching full details
+                    if not should_scan_package(package_name):
+                        logger.debug(f"[NPM Watcher] Skipped: {package_name}")
+                        continue
+                    
+                    # Only fetch full details for matched packages
+                    logger.debug(f"[NPM Watcher] Fetching details for: {package_name}")
+                    package_info = await fetch_package_details(package_name, client)
+                    
                     if not package_info:
                         continue
                     
-                    package_name = package_info["package_name"]
                     version = package_info["version"]
                     
-                    # Apply the target filter
-                    if should_scan_package(package_name):
-                        # Log matched packages with the specified format
-                        logger.info(f"[NPM Watcher] Detected: {package_name}@{version}")
-                        # Process matched packages asynchronously
-                        asyncio.create_task(process_npm_package(package_info))
-                    else:
-                        # Silently skip non-matching packages to reduce noise
-                        logger.debug(f"[NPM Watcher] Skipped: {package_name}@{version}")
+                    # Log matched packages with the specified format
+                    logger.info(f"[NPM Watcher] Detected: {package_name}@{version}")
+                    
+                    # Process matched packages asynchronously
+                    asyncio.create_task(process_npm_package(package_info))
                 
             except httpx.TimeoutException:
                 # Timeout is expected with long-polling, just continue
