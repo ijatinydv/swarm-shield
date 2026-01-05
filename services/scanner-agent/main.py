@@ -30,11 +30,15 @@ app = FastAPI(title="Scanner Agent", version="1.0.0")
 # ============================================================================
 # NPM LIVE WATCHTOWER CONFIGURATION
 # ============================================================================
-NPM_CHANGES_URL = "https://replicate.npmjs.com/registry/_changes"
+NPM_CHANGES_URL = "https://replicate.npmjs.com/_changes"
 NPM_REGISTRY_URL = "https://registry.npmjs.org"
 NPM_WATCHER_ENABLED = os.getenv("NPM_WATCHER_ENABLED", "true").lower() == "true"
 NPM_POLL_TIMEOUT = int(os.getenv("NPM_POLL_TIMEOUT", "60"))  # Long-poll timeout in seconds
 NPM_BACKOFF_SECONDS = 5  # Backoff on connection errors
+NPM_LAST_SEQ_PATH = Path(os.getenv("NPM_LAST_SEQ_PATH", Path(__file__).parent / ".npm_watcher_last_seq"))
+
+# Per NPM Replication API, the opt-in header is required or the service returns 400.
+NPM_REPLICATION_HEADERS = {"npm-replication-opt-in": "true"}
 
 # Target filter keywords - packages containing these will be fully scanned
 # Keep this list small to prevent flooding the dashboard
@@ -350,6 +354,24 @@ def extract_package_info(doc: dict) -> Optional[dict]:
         return None
 
 
+def load_last_seq(default: str = "now") -> str:
+    """Load the last processed CouchDB seq from disk to avoid replay gaps."""
+    try:
+        if NPM_LAST_SEQ_PATH.exists():
+            return NPM_LAST_SEQ_PATH.read_text(encoding="utf-8").strip() or default
+    except Exception as e:
+        logger.debug(f"Failed to read last_seq file: {e}")
+    return default
+
+
+def persist_last_seq(seq: str) -> None:
+    """Persist the last seq so restarts resume from the correct cursor."""
+    try:
+        NPM_LAST_SEQ_PATH.write_text(str(seq), encoding="utf-8")
+    except Exception as e:
+        logger.debug(f"Failed to persist last_seq: {e}")
+
+
 async def process_npm_package(package_info: dict):
     """
     Process a matched NPM package through the detection pipeline.
@@ -417,12 +439,15 @@ async def npm_watcher_task():
       Step 1: Poll _changes feed (without include_docs - deprecated by NPM)
       Step 2: Fetch full package details only for matched packages
     """
-    last_seq = "now"  # Start from current point in time
+    last_seq = load_last_seq("now")
     
     logger.info("[NPM Watcher] 🔭 Watchtower online - Monitoring NPM registry for new publications...")
     logger.info(f"[NPM Watcher] Using 2-step polling strategy (changes: {NPM_CHANGES_URL})")
     
-    async with httpx.AsyncClient(timeout=httpx.Timeout(NPM_POLL_TIMEOUT + 10, connect=30.0)) as client:
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(NPM_POLL_TIMEOUT + 10, connect=30.0),
+        headers=NPM_REPLICATION_HEADERS,
+    ) as client:
         while True:
             try:
                 # ============================================================
@@ -436,10 +461,11 @@ async def npm_watcher_task():
                 
                 logger.debug(f"[NPM Watcher] Polling changes since: {last_seq}")
                 
+                # The opt-in header is attached at the client level; without it NPM returns 400 per the replication API.
                 response = await client.get(
                     NPM_CHANGES_URL,
                     params=params,
-                    timeout=httpx.Timeout(NPM_POLL_TIMEOUT + 10, connect=30.0)
+                    timeout=httpx.Timeout(NPM_POLL_TIMEOUT + 10, connect=30.0),
                 )
                 response.raise_for_status()
                 
@@ -449,6 +475,7 @@ async def npm_watcher_task():
                 new_last_seq = data.get("last_seq")
                 if new_last_seq:
                     last_seq = new_last_seq
+                    persist_last_seq(last_seq)
                 
                 # ============================================================
                 # STEP 2: Filter & Fetch - only fetch details for matches
@@ -489,7 +516,10 @@ async def npm_watcher_task():
                 continue
                 
             except httpx.HTTPStatusError as e:
-                logger.error(f"[NPM Watcher] HTTP error {e.response.status_code}: {e}")
+                body = e.response.text if e.response is not None else "<no-body>"
+                logger.error(
+                    f"[NPM Watcher] HTTP error {e.response.status_code}: {e}; body={body}"
+                )
                 logger.info(f"[NPM Watcher] Backing off for {NPM_BACKOFF_SECONDS} seconds...")
                 await asyncio.sleep(NPM_BACKOFF_SECONDS)
                 
